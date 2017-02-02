@@ -1,56 +1,125 @@
-# Chapter 3
-from django.test import TestCase
-from django.contrib.staticfiles.testing import StaticLiveServerTestCase
-from django.core.urlresolvers import reverse
-import os
+#Chapter 7
+from rango.decorators import chapter7
+from rango.forms import CategoryForm, PageForm
 
-#Chapter 4
-from django.contrib.staticfiles import finders
+# ===== Chapter 7
+class Chapter7ViewTests(TestCase):
+    @chapter7
+    def test_index_contains_link_to_add_category(self):
+        # Access index
+        try:
+            response = self.client.get(reverse('index'))
+        except:
+            try:
+                response = self.client.get(reverse('rango:index'))
+            except:
+                return False
 
-# ===== CHAPTER 4
-class Chapter4ViewTest(TestCase):
+        # Check if there is text and a link to add category
+        self.assertIn('href="' + reverse('add_category') + '"', response.content)
 
-    def test_view_has_title(self):
-        response = self.client.get(reverse('index'))
+    @chapter7
+    def test_add_category_form_is_displayed_correctly(self):
+        # Access add category page
+        response = self.client.get(reverse('add_category'))
 
-        #Check title used correctly
-        self.assertIn('<title>', response.content)
-        self.assertIn('</title>', response.content)
+        # Check form in response context is instance of CategoryForm
+        self.assertTrue(isinstance(response.context['form'], CategoryForm))
 
-    def test_index_using_template(self):
-        response = self.client.get(reverse('index'))
+        # Check form is displayed correctly
+        # Header
+        self.assertIn('<h1>Add a Category</h1>'.lower(), response.content.lower())
 
-        # Check the template used to render index page
-        self.assertTemplateUsed(response, 'rango/index.html')
+        # Label
+        self.assertIn('Please enter the category name.'.lower(), response.content.lower())
 
-    def test_about_using_template(self):
-        self.client.get(reverse('index'))
-        response = self.client.get(reverse('about'))
+        # Text input
+        self.assertIn('id="id_name" maxlength="128" name="name" type="text"', response.content)
 
-        # Check the template used to render about page
-        self.assertTemplateUsed(response, 'rango/about.html')
+        # Button
+        self.assertIn('type="submit" name="submit" value="Create Category"'.lower(), response.content.lower())
 
-    def test_rango_picture_displayed(self):
-        response = self.client.get(reverse('index'))
+    @chapter7
+    def test_add_page_form_is_displayed_correctly(self):
+        # Create categories
+        categories = test_utils.create_categories()
 
-        # Check if is there an image in index page
-        self.assertIn('img src="/static/images/rango.jpg'.lower(), response.content.lower())
+        for category in categories:
+            # Access add category page
+            try:
+                response = self.client.get(reverse('index'))
+                response = self.client.get(reverse('add_page', args=[category.slug]))
+            except:
+                try:
+                    response = self.client.get(reverse('rango:index'))
+                    response = self.client.get(reverse('rango:add_page', args=[category.slug]))
+                except:
+                    return False
 
-    # New media test
-    def test_cat_picture_displayed(self):
-        response = self.client.get(reverse('about'))
+            # Check form in response context is instance of CategoryForm
+            self.assertTrue(isinstance(response.context['form'], PageForm))
 
-        # Check if is there an image in index page
-        self.assertIn('img src="/media/cat.jpg'.lower(), response.content.lower())
+            # Check form is displayed correctly
 
-    def test_about_contain_image(self):
-        self.client.get(reverse('index'))
-        response = self.client.get(reverse('about'))
+            # Label 1
+            self.assertIn('Please enter the title of the page.'.lower(), response.content.lower())
 
-        # Check if is there an image in index page
-        self.assertIn('img src="/static/images/', response.content)
+            # Label 2
+            self.assertIn('Please enter the URL of the page.'.lower(), response.content.lower())
 
-    def test_serving_static_files(self):
-        # If using static media properly result is not NONE once it finds rango.jpg
-        result = finders.find('images/rango.jpg')
-        self.assertIsNotNone(result)
+            # Text input 1
+            self.assertIn('id="id_title" maxlength="128" name="title" type="text"'.lower(), response.content.lower())
+
+            # Text input 2
+            self.assertIn('id="id_url" maxlength="200" name="url" type="url"'.lower(), response.content.lower())
+
+            # Button
+            self.assertIn('type="submit" name="submit" value="Add Page"'.lower(), response.content.lower())
+
+    def test_access_category_that_does_not_exists(self):
+        # Access a category that does not exist
+        response = self.client.get(reverse('show_category', args=['python']))
+
+        # Check that it has a response as status code OK is 200
+        self.assertEquals(response.status_code, 200)
+
+        # Check the rendered page is not empty, thus it was customised (I suppose)
+        self.assertNotEquals(response.content, '')
+
+    def test_link_to_add_page_only_appears_in_valid_categories(self):
+        # Access a category that does not exist
+        response = self.client.get(reverse('show_category', args=['python']))
+
+        # Check that there is not a link to add page
+        try:
+            self.assertNotIn(reverse('add_page', args=['python']), response.content)
+            # Access a category that does not exist
+            response = self.client.get(reverse('show_category', args=['other-frameworks']))
+            # Check that there is not a link to add page
+            self.assertNotIn(reverse('add_page', args=['other-frameworks']), response.content)
+        except:
+            try:
+                self.assertNotIn(reverse('rango:add_page', args=['python']), response.content)
+                # Access a category that does not exist
+                response = self.client.get(reverse('rango:show_category', args=['other-frameworks']))
+                # Check that there is not a link to add page
+                self.assertNotIn(reverse('rango:add_page', args=['other-frameworks']), response.content)
+            except:
+                return False
+
+    @chapter7
+    def test_category_contains_link_to_add_page(self):
+        # Crete categories
+        categories = test_utils.create_categories()
+
+        # For each category in the database check if contains link to add page
+        for category in categories:
+            try:
+                response = self.client.get(reverse('show_category', args=[category.slug]))
+                self.assertIn(reverse('add_page', args=[category.slug]), response.content)
+            except:
+                try:
+                    response = self.client.get(reverse('rango:show_category', args=[category.slug]))
+                    self.assertIn(reverse('rango:add_page', args=[category.slug]), response.content)
+                except:
+                    return False
