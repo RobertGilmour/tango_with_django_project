@@ -8,6 +8,7 @@
 {% block body_block %}
 	<h1>Add a Page to {{ category.name }}</h1>
 	<div>
+<!-- need to try changing the url here -->
 		<form id="category_form" method="post" action="/rango/category/{{ category.slug }}/add_page/">
 			{% if cat %}
 				A category by this name does not exist
