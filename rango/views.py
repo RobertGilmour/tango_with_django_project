@@ -1,5 +1,8 @@
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.core.urlresolvers import reverse
 
 # Import the  models
 from rango.models import Category, Page
@@ -54,6 +57,7 @@ def show_category(request, category_name_slug):
     # Go render the response and return it to the client.
     return render(request, 'rango/category.html', context_dict)
 
+@login_required
 def add_category(request):
     form = CategoryForm()
 
@@ -81,6 +85,7 @@ def add_category(request):
     # Render the form with error messages (if any).
     return render(request, 'rango/add_category.html', {'form': form})
 
+@login_required
 def add_page(request, category_name_slug):
     try:
         category = Category.objects.get(slug=category_name_slug)
@@ -162,3 +167,48 @@ def register(request):
                   {'user_form': user_form,
                    'profile_form': profile_form,
                    'registered': registered})
+
+def user_login(request):
+    # If the request is a HTTP POST, try to pull out the relevant information
+    if request.method == 'POST':
+        # get the username and password from the POST
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+
+
+        # try to authenticate username and password
+        user = authenticate(username=username, password=password)
+
+        # if we have a user object then the authentication was successful
+        if user:
+            # check if the acount is active
+            if user.is_active:
+                # if the account is valid and active, login and redirect to the homepage
+                login(request,user)
+                return HttpResponseRedirect(reverse('index'))
+            else:
+                # an inactive account was used, no logging in
+                context_dict = {'login_error': 'Your Rango account is disabled.'}
+                print "inactive"
+                return render(request, 'rango/login.html', context=context_dict)
+        else:
+            # incorrect login details were provided
+            print("Invalid login details: {0}, {1}".format(username, password))
+            context_dict = {'login_error': 'Invalid login details supplied.'}
+            return render(request, 'rango/login.html', context=context_dict)
+    else:
+        # the request is not a HTTP POST so display the form
+        context_dict = {'login_error': ''}
+        return render(request, 'rango/login.html', 'login_error': '')
+
+@login_required
+def restricted(request):
+    return render(request, 'rango/restricted.html', {})
+
+@login_required
+def user_logout(request):
+    # Since the user is logged in, we can now just log them out
+    logout(request)
+    # Take the user back to the homepage
+    return HttpResponseRedirect(reverse('index'))
